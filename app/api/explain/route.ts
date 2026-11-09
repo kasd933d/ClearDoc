@@ -14,18 +14,31 @@ export async function POST(req: Request) {
       );
     }
 
-    const apiKey = process.env.AI_API_KEY;
+    // Read environment variables
+    const apiKey = process.env.AI_API_KEY?.trim();
 
     const baseUrl = (
-      process.env.AI_BASE_URL || "https://api.x.ai/v1"
+      process.env.AI_BASE_URL?.trim() || "https://api.x.ai/v1"
     ).replace(/\/$/, "");
 
-    const models = [
-      process.env.AI_MODEL,
-      process.env.AI_FALLBACK_MODEL,
-    ].filter(Boolean) as string[];
+    const mainModel = process.env.AI_MODEL?.trim();
+    const fallbackModel = process.env.AI_FALLBACK_MODEL?.trim();
+
+    const models = [mainModel, fallbackModel].filter(
+      (model): model is string => Boolean(model)
+    );
+
+    // Safe environment debugging (never logs API key)
+    console.log("ENV CHECK:", {
+      hasApiKey: Boolean(apiKey),
+      hasMainModel: Boolean(mainModel),
+      hasFallbackModel: Boolean(fallbackModel),
+      hasBaseUrl: Boolean(baseUrl),
+    });
 
     if (!apiKey || models.length === 0) {
+      console.error("Missing AI environment variables");
+
       return NextResponse.json(
         { error: "Server is not set up yet (missing key or model)." },
         { status: 500 }
@@ -56,10 +69,13 @@ Rules:
 
     for (const model of models) {
       try {
-        console.log("explain: trying Grok model", model);
+        console.log("explain: trying Grok model:", model);
 
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 25000);
+
+        const timeout = setTimeout(() => {
+          controller.abort();
+        }, 25000);
 
         let res: Response;
 
@@ -103,36 +119,56 @@ Rules:
         if (!res.ok) {
           lastStatus = res.status;
 
-          console.error(
-            "Grok error:",
+          const errorText = await res.text();
+
+          console.error("Grok API error:", {
             model,
-            res.status,
-            await res.text()
-          );
+            status: res.status,
+            error: errorText,
+          });
 
           continue;
         }
 
         const data = await res.json();
 
-        const text = data.choices?.[0]?.message?.content;
+        const responseText = data?.choices?.[0]?.message?.content;
 
-        if (!text) {
+        if (!responseText || typeof responseText !== "string") {
           lastStatus = 502;
-          console.error("Grok gave an empty answer:", model);
+
+          console.error("Grok returned an empty response:", model);
+
           continue;
         }
 
-        const result = JSON.parse(text);
+        let result;
+
+        try {
+          const cleanedText = responseText
+            .replace(/^```json\s*/i, "")
+            .replace(/^```\s*/i, "")
+            .replace(/\s*```$/i, "")
+            .trim();
+
+          result = JSON.parse(cleanedText);
+        } catch (parseError) {
+          lastStatus = 502;
+
+          console.error("Invalid JSON returned by Grok:", parseError);
+
+          continue;
+        }
 
         return NextResponse.json(result);
       } catch (err) {
         lastStatus =
-          err instanceof Error && err.name === "AbortError"
+          err instanceof Error &&
+          (err.name === "AbortError" || err.name === "TimeoutError")
             ? 504
             : 502;
 
-        console.error("explain: Grok model failed:", model, err);
+        console.error("Grok model failed:", model, err);
       }
     }
 
@@ -163,10 +199,12 @@ Rules:
       { status: 502 }
     );
   } catch (err) {
-    console.error(err);
+    console.error("Explain API error:", err);
 
     return NextResponse.json(
-      { error: "Something went wrong. Please try again." },
+      {
+        error: "Something went wrong. Please try again.",
+      },
       { status: 500 }
     );
   }
