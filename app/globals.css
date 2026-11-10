@@ -1,26 +1,118 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ClearDoc: midnight blue + mint + amber */
+html { scroll-behavior: smooth; }
+body { background: #070b16; color: #eaf0ff; }
+::selection { background: #3de0c3; color: #04110e; }
+
+/* ---------- Keyframes (animations ke naqshe) ---------- */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(100%); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes float {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(40px, -30px) scale(1.15); }
+}
+@keyframes scan {
+  0%   { top: 4%; }
+  50%  { top: 92%; }
+  100% { top: 4%; }
+}
+@keyframes shimmer {
+  to { background-position: -200% 0; }
+}
+@keyframes chip {
+  0%, 35%  { opacity: 0; transform: translateY(12px); }
+  50%, 90% { opacity: 1; transform: none; }
+  100%     { opacity: 0; transform: translateY(12px); }
+}
+@keyframes blink {
+  50% { opacity: 0; }
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ---------- Classes ---------- */
+.letter {
+  display: inline-block;
+  animation: rise 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.text-grad {
+  background: linear-gradient(120deg, #3de0c3, #ffb547);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 40s linear infinite;
 }
+.marquee-reverse { animation-direction: reverse; animation-duration: 55s; }
+
+.reveal {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+.reveal.show { opacity: 1; transform: none; }
+
+.blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.28;
+  animation: float 14s ease-in-out infinite alternate;
+}
+
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+}
+
+.scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #3de0c3, transparent);
+  box-shadow: 0 0 24px 6px rgba(61, 224, 195, 0.55);
+  animation: scan 4s ease-in-out infinite;
+  z-index: 2;
+}
+
+.ink {
+  height: 10px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.1), rgba(255,255,255,0.3), rgba(255,255,255,0.1));
+  background-size: 200% 100%;
+  animation: shimmer 2.4s linear infinite;
+}
+
+.clear-chip { animation: chip 4s ease-in-out infinite; }
+
+.caret::after {
+  content: "▌";
+  margin-left: 2px;
+  color: #3de0c3;
+  animation: blink 1s steps(1) infinite;
+}
+
+/* ---------- Motion band: Pause motion button aur reduced-motion ---------- */
+[data-motion="off"] *,
+[data-motion="off"] *::before,
+[data-motion="off"] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+[data-motion="off"] .reveal { opacity: 1; transform: none; }
+[data-motion="off"] .scan-line { display: none; }
